@@ -1,0 +1,118 @@
+(ns snake-game.core
+  (:require [quil.core :as q :include-macros true]
+            [quil.middleware :as m]))
+
+(def board-size {:width 16 :height 16})
+
+(def cell-size 15)
+
+(defn add-points
+  [& pts]
+  (vec (apply map + pts)))
+
+(defn hit-boarder?
+  [snake]
+  (let [head (first snake)]
+    (or (some true? (map > [0 0] head))
+        (some true? (map < [(board-size :width) (board-size :height)] head)))))
+
+(defn hit-itself?
+  [snake]
+  (let [head (first snake)]
+    (some #(= % head) (rest snake))))
+
+(defn game-over?
+  [snake]
+  (or (hit-boarder? snake) (hit-itself? snake)))
+
+(defn restart-game [state]
+  {:body (list [2 8] [1 8] [0 8])
+   :dir [1 0]
+   :apple (create-apple (list [2 8] [1 8] [0 8]))})
+
+(defn eat-apple?
+  [snake apple]
+  (= (first snake) apple))
+
+(defn create-apple
+  [snake]
+  (let [apple-pos [(rand-int (board-size :width))
+                   (rand-int (board-size :height))]]
+    (if (some #(= % apple-pos) snake)
+      (create-apple snake) ;; recreated becasue the apple is in the snake body
+      apple-pos)))
+
+(defn move
+  [snake dir]
+  (cons (add-points (first snake) dir) (drop-last snake)))
+
+(defn grow-move
+  [snake dir]
+  (cons (add-points (first snake) dir) snake))
+
+(defn update-state [state]
+  (if (game-over? (state :body))
+    (restart-game state)
+    
+    (if (eat-apple? (state :body) (state :apple))
+      ;; positive clause
+      (let [intermediate-state (update-in state [:body] grow-move (state :dir))]
+        (assoc-in intermediate-state [:apple] (create-apple (intermediate-state :body))))
+      ;; negative clause
+      (update-in state [:body] move (state :dir)))))
+
+;; ---------------------------------------------------------------------------
+;; Control
+;; ---------------------------------------------------------------------------
+
+(def key->dir {37 [-1 0] ;left
+               38 [0 -1] ;up
+               39 [1 0] ;right
+               40 [0 1] ;down
+               })
+
+(defn key-pressed [state event]
+  (let [dir        (key->dir (q/key-code)) ; direction indicated by keystroke
+        banned-dir (map * [-1 -1] (state :dir))] ; reversed direction of moving snake
+    (if (not= dir banned-dir)
+      (assoc-in state [:dir] dir))))
+
+;; ---------------------------------------------------------------------------
+;; Draw
+;; ---------------------------------------------------------------------------
+
+(defn draw-square
+  [pos]
+  (let [[x y] pos]
+    (q/rect (* x cell-size) (* y cell-size) cell-size cell-size)))
+
+(defn draw-apple
+  [pos]
+  (let [[x y] pos]
+    (q/rect (* x cell-size) (* y cell-size) cell-size cell-size)))
+
+(defn draw [state]
+  (q/background 255)
+  (q/fill 0)
+
+  (draw-apple (state :apple))
+
+  (doseq [point (state :body)]
+    (draw-square point)))
+
+(defn setup []
+  (q/frame-rate 10)
+
+  ;; The program state is defined here.
+  {:body (list [2 8] [1 8] [0 8])
+   :dir [1 0]
+   :apple (create-apple (list [2 8] [1 8] [0 8]))})
+
+(q/defsketch board
+  :size [(* (board-size :width) cell-size)
+         (* (board-size :height) cell-size)]
+  :setup setup
+  :key-pressed key-pressed
+  :update update-state
+  :draw draw
+  :middleware [m/fun-mode])

@@ -93,7 +93,7 @@
     (q/rect (* x cell-size) (* y cell-size) cell-size cell-size)))
 
 (defn draw [state]
-  (q/background 255)
+  (q/background 220 220 220)
   (q/fill 0)
 
   (draw-apple (state :apple))

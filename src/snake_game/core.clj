@@ -90,6 +90,8 @@
 (defn draw-apple
   [pos]
   (let [[x y] pos]
+    (q/fill 255 0 0)
+    (q/no-stroke)
     (q/rect (* x cell-size) (* y cell-size) cell-size cell-size)))
 
 (defn draw [state]
